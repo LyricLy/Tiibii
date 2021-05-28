@@ -1,0 +1,14 @@
+[tool.poetry]
+name = "ultimate-tic-tac-toe"
+version = "0.1.0"
+description = ""
+authors = ["LyricLy <gulliverhanson@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+"discord.py" = {git = "https://github.com/Rapptz/discord.py"}
+jishaku = {git = "https://github.com/Gorialis/jishaku"}
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
