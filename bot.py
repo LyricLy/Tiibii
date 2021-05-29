@@ -86,6 +86,12 @@ class UltimateTicTacToe:
             self.to_play = Y if self.to_play == X else X
             self.last_move = x, y, sx, sy
 
+    def maybe_bold(self, text, x, y, sx, sy):
+        if (x, y, sx, sy) == self.last_move:
+            return f"**{text}**"
+        else:
+            return text
+
     def render(self, select):
         out = ""
         # ok, here we go
@@ -93,8 +99,7 @@ class UltimateTicTacToe:
             for y in range(SIZE):
                 for sx in range(SIZE):
                     for x in range(SIZE):
-                        bold = "**" * bool(self.last_move and (sx, sy, x, y) == self.last_move)
-                        out += ICONS[self.innards[sy][sx].board[y][x]] if (sx, sy) != select else ICON_SELECTED
+                        out += self.maybe_bold(ICONS[self.innards[sy][sx].board[y][x]], sx, sy, x, y) if (sx, sy) != select else ICON_SELECTED
                     if sx < SIZE-1:
                         out += VERT_LINE
                 out += "\n"
@@ -152,6 +157,8 @@ class Game(discord.ui.View):
                 else:
                     w = self.board.overall.board[y][x]
                 child.label = BUTTON_ICONS[w]
+                if self.sub_board:
+                    child.label = maybe_bold(child.label, bx, by, x, y)
                 child.style = BUTTON_STYLES[w]
                 child.disabled = bool(w)
                 if not self.sub_board and self.board.next_space and (x, y) != self.board.next_space:
