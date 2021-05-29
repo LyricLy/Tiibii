@@ -13,6 +13,7 @@ VERT_LINE = "｜"
 HORI_LINE = "ー"
 CROSS = "＋"
 BUTTON_ICONS = "\u200bXO"
+BOLD_BUTTON_ICONS = "\u200b𝝬𝝤"
 BUTTON_STYLES = [discord.ButtonStyle.secondary, discord.ButtonStyle.danger, discord.ButtonStyle.primary]
 CONTEXT_BUTTON_STYLE = discord.ButtonStyle.success
 RESIGN_EMOJI = "🏳️"
@@ -86,12 +87,6 @@ class UltimateTicTacToe:
             self.to_play = Y if self.to_play == X else X
             self.last_move = x, y, sx, sy
 
-    def maybe_bold(self, text, x, y, sx, sy):
-        if (x, y, sx, sy) == self.last_move:
-            return f"__**{text}**__"
-        else:
-            return text
-
     def render(self, select):
         out = ""
         # ok, here we go
@@ -99,7 +94,14 @@ class UltimateTicTacToe:
             for y in range(SIZE):
                 for sx in range(SIZE):
                     for x in range(SIZE):
-                        out += self.maybe_bold(ICONS[self.innards[sy][sx].board[y][x]], sx, sy, x, y) if (sx, sy) != select else ICON_SELECTED
+                        if (sx, sy) == select:
+                            out += ICON_SELECTED
+                        else:
+                            i = ICONS[self.innards[sy][sx].board[y][x]]
+                            if (sx, sy, x, y) == self.last_move:
+                                out += f"__**{i}**__"
+                            else:
+                                out += i
                     if sx < SIZE-1:
                         out += VERT_LINE
                 out += "\n"
@@ -156,9 +158,10 @@ class Game(discord.ui.View):
                     w = self.board.innards[by][bx].board[y][x]
                 else:
                     w = self.board.overall.board[y][x]
-                child.label = BUTTON_ICONS[w]
-                if self.sub_board:
-                    child.label = self.board.maybe_bold(child.label, bx, by, x, y)
+                if self.sub_board and (bx, by, x, y) == self.board.last_move:
+                    child.label = BOLD_BUTTON_ICONS[w]
+                else:
+                    child.label = BUTTON_ICONS[w]
                 child.style = BUTTON_STYLES[w]
                 child.disabled = bool(w)
                 if not self.sub_board and self.board.next_space and (x, y) != self.board.next_space:
