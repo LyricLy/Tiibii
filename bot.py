@@ -88,7 +88,7 @@ class UltimateTicTacToe:
 
     def maybe_bold(self, text, x, y, sx, sy):
         if (x, y, sx, sy) == self.last_move:
-            return f"**{text}**"
+            return f"__**{text}**__"
         else:
             return text
 
