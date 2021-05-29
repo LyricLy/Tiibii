@@ -8,6 +8,7 @@ X = 1
 Y = 2
 SIZE = 3
 ICONS = "　ＸＯ"
+ICON_SELECTED = "＊"
 VERT_LINE = "｜"
 HORI_LINE = "ー"
 CROSS = "＋"
@@ -16,7 +17,7 @@ BUTTON_STYLES = [discord.ButtonStyle.secondary, discord.ButtonStyle.danger, disc
 CONTEXT_BUTTON_STYLE = discord.ButtonStyle.success
 RESIGN_EMOJI = "🏳️"
 RESIGN_MSG = "Resign"
-BACK_MSG = "Back"
+BACK_MSG = "Zoom out"
 
 
 class CountResult:
@@ -25,7 +26,7 @@ class CountResult:
         self.v = v
 
     def then(self, c, i, p=True):
-        if self.v and p:
+        if self.v or not p:
             return self
         return c.hit(self.player, i)
 
@@ -34,8 +35,8 @@ class Counts:
         self.v = ([0]*s, [0]*s)
 
     def hit(self, player, i):
-        self.v[player][i] += 1
-        return CountResult(player, self.v[player][i] == SIZE)
+        self.v[player-1][i] += 1
+        return CountResult(player, self.v[player-1][i] == SIZE)
 
 class TicTacToe:
     def __init__(self):
@@ -60,17 +61,6 @@ class TicTacToe:
             .then(self.solidus_counts, 0, SIZE-1-x == y)
         ).v
 
-    def __str__(self):
-        out = ""
-        for j, l in enumerate(self.board):
-            for i, x in enumerate(l):
-                out += ICONS[x]
-                if i < SIZE-1:
-                    out += VERT_LINE
-            if j < SIZE-1:
-                out += f"\n{HORI_LINE}{CROSS}{HORI_LINE}{CROSS}{HORI_LINE}\n"
-        return out
-
 
 class UltimateTicTacToe:
     def __init__(self):
@@ -94,14 +84,14 @@ class UltimateTicTacToe:
             self.next_space = None if self.overall.board[sy][sx] else (sx, sy)
             self.to_play = Y if self.to_play == X else X
 
-    def __str__(self):
+    def render(self, select):
         out = ""
         # ok, here we go
         for sy in range(SIZE):
             for y in range(SIZE):
                 for sx in range(SIZE):
                     for x in range(SIZE):
-                        out += ICONS[self.innards[sy][sx].board[y][x]]
+                        out += ICONS[self.innards[sy][sx].board[y][x]] if (sx, sy) != select else ICON_SELECTED
                     if sx < SIZE-1:
                         out += VERT_LINE
                 out += "\n"
@@ -146,9 +136,10 @@ class Game(discord.ui.View):
         for x in range(SIZE):
             for y in range(SIZE):
                 self.add_item(PosButton(x, y))
-        self.add_item(ContextButton())
+        self.ctx_button = ContextButton()
+        self.add_item(self.ctx_button)
 
-    async def redraw(self):
+    def redraw(self):
         for child in self.children:
             if isinstance(child, PosButton):
                 x, y = child.pos
@@ -160,44 +151,63 @@ class Game(discord.ui.View):
                 child.label = BUTTON_ICONS[w]
                 child.style = BUTTON_STYLES[w]
                 child.disabled = bool(w)
-        self.render = str(self.board.innards[by][bx]) if self.sub_board else str(self.board)
+                if not self.sub_board and self.board.next_space and (x, y) != self.board.next_space:
+                    child.disabled = True
+        if self.sub_board:
+            self.ctx_button.to_back()
+        else:
+            self.ctx_button.to_resign()
+
+    def __str__(self):
+        return self.board.render(self.sub_board) 
 
     async def click_pos(self, interaction, x, y):
+        played = self.current_player
+
         if self.sub_board:
             won = self.board.make_move(*self.sub_board, x, y)
-            self.sub_board = None
+            self.sub_board = self.board.next_space
         else:
             won = False
             self.sub_board = x, y
 
-        await self.redraw()
         if won:
-            await interaction.response.edit_message(content=f"{self.players[2-self.board.to_play]} wins!\n\n{self.render}", view=self)
-            self.view.stop()
+            self.end_game()
+            await interaction.response.edit_message(content=f"{played} wins!\n\n{self}", view=self)
         else:
-            await interaction.response.edit_message(content=f"{self.players[self.board.to_play-1]}'s turn\n\n{self.render}", view=self)
+            self.redraw()
+            await interaction.response.edit_message(content=f"{self.current_player}'s turn\n\n{self}", view=self)
 
     async def click_ctx(self, interaction):
         if self.sub_board:
             # back
             self.sub_board = None
-            await self.redraw()
-            await interaction.response.edit_message(view=self.view)
+            self.redraw()
+            await interaction.response.edit_message(content=f"Currently zoomed out.\n\n{self}", view=self)
         else:
             # resignation
-            await interaction.response.edit_message(content=f"{self.players[self.board.to_play-1]} resigned.\n\n{game.render}", view=self)
-            self.view.stop()
+            self.end_game()
+            await interaction.response.edit_message(content=f"{self.current_player} resigned.\n\n{self}", view=self)
+
+    def end_game(self):
+        self.sub_board = None
+        self.redraw()
+        for child in self.children:
+            child.disabled = True
+        self.remove_item(self.ctx_button)
+        self.stop()
+
+    @property
+    def current_player(self):
+        return self.players[self.board.to_play-1]
 
     async def interaction_check(self, interaction):
-        try:
-            p = self.players.index(interaction.user)
-        except IndexError:
+        if interaction.user not in self.players:
             await interaction.response.send_message("You're not playing in this game.", ephemeral=True)
             return False
-        else:
-            if p+1 != self.board.to_play:
-                await interaction.response.send_message("It's not your turn.", ephemeral=True)
-                return False
+        if interaction.user != self.players[self.board.to_play-1]:
+            await interaction.response.send_message("It's not your turn.", ephemeral=True)
+            return False
         return True
 
 
@@ -208,7 +218,7 @@ async def ultimate_tic_tac_toe(ctx, *, opponent: discord.Member):
         return await ctx.send("This command only works in a guild.")
 
     game = Game((ctx.author, opponent))
-    await ctx.send(f"{game.players[game.board.to_play-1]} (X) to start!\n\n{game.board}", view=game)
+    await ctx.send(f"{game.players[game.board.to_play-1]} (X) to start!\n\n{game}", view=game)
 with open("token.txt") as f:
     token = f.read()
 bot.run(token)
