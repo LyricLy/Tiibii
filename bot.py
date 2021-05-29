@@ -158,7 +158,7 @@ class Game(discord.ui.View):
                     w = self.board.overall.board[y][x]
                 child.label = BUTTON_ICONS[w]
                 if self.sub_board:
-                    child.label = maybe_bold(child.label, bx, by, x, y)
+                    child.label = self.board.maybe_bold(child.label, bx, by, x, y)
                 child.style = BUTTON_STYLES[w]
                 child.disabled = bool(w)
                 if not self.sub_board and self.board.next_space and (x, y) != self.board.next_space:
