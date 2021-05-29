@@ -69,6 +69,7 @@ class UltimateTicTacToe:
         self.innards = [[TicTacToe() for _ in range(SIZE)] for _ in range(SIZE)]
         self.to_play = X
         self.next_space = None
+        self.last_move = None
 
     def make_move(self, x, y, sx, sy):
         if not (0 <= x < SIZE and 0 <= y < SIZE):
@@ -83,6 +84,7 @@ class UltimateTicTacToe:
         finally:
             self.next_space = None if self.overall.board[sy][sx] else (sx, sy)
             self.to_play = Y if self.to_play == X else X
+            self.last_move = x, y, sx, sy
 
     def render(self, select):
         out = ""
@@ -91,6 +93,7 @@ class UltimateTicTacToe:
             for y in range(SIZE):
                 for sx in range(SIZE):
                     for x in range(SIZE):
+                        bold = "**" * bool(self.last_move and (sx, sy, x, y) == self.last_move)
                         out += ICONS[self.innards[sy][sx].board[y][x]] if (sx, sy) != select else ICON_SELECTED
                     if sx < SIZE-1:
                         out += VERT_LINE
@@ -212,13 +215,16 @@ class Game(discord.ui.View):
 
 
 bot = commands.Bot(command_prefix="tii!")
+bot.load_extension("jishaku")
+
 @bot.command(aliases=["uttt", "ultimate-tic-tac-toe", "ultimatetictactoe"])
 async def ultimate_tic_tac_toe(ctx, *, opponent: discord.Member):
     if ctx.guild is None:
         return await ctx.send("This command only works in a guild.")
 
     game = Game((ctx.author, opponent))
-    await ctx.send(f"{game.players[game.board.to_play-1]} (X) to start!\n\n{game}", view=game)
+    await ctx.send(f"{game.current_player} to start!\n\n{game}", view=game)
+
 with open("token.txt") as f:
     token = f.read()
 bot.run(token)
